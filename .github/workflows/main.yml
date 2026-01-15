@@ -1,6 +1,12 @@
 name: 1Rivet DevOps Pipeline
 
-# Trigger: Run this pipeline on every "push" to the main branch
+# Permissions: Grant the pipeline power to write comments and push updates to README
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+# Trigger: Run on push to main OR when a Pull Request is opened
 on:
   push:
     branches: [ "main" ]
@@ -8,15 +14,36 @@ on:
     branches: [ "main" ]
 
 jobs:
+  # JOB 1: THE WELCOME WAGON (New User Detection)
+  welcome-new-contributor:
+    runs-on: ubuntu-latest
+    # Only run this job if it is a Pull Request (common for new interns)
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Check for First Interaction
+        uses: actions/first-interaction@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          pr-message: |
+            ## 🚀 Welcome to the Team!
+            I see this is your first contribution. As part of our **DevSecOps** protocol, your code will now be scanned for:
+            - 🔐 **Security Secrets** (Passwords/Keys)
+            - 🐛 **Python Vulnerabilities** (Bandit)
+            
+            *Please wait for the checks to pass before asking for a review.*
+
+  # JOB 2: THE MAIN PIPELINE (Build, Secure, Update Dashboard)
   build-and-secure:
     runs-on: ubuntu-latest
-
+    
     steps:
-    # Step 1: Download the code from the repo
+    # Step 1: Download Code
     - name: Checkout Code
       uses: actions/checkout@v3
+      with:
+        fetch-depth: 0 # Fetch all history so we can count commits
 
-    # Step 2: Set up Python environment
+    # Step 2: Set up Python
     - name: Set up Python 3.9
       uses: actions/setup-python@v4
       with:
@@ -26,14 +53,40 @@ jobs:
     - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install bandit # 'bandit' is a security scanner for Python
+        pip install bandit
 
-    # Step 4: Run Security Scan (The "DevSecOps" part)
-    - name: Run Security Scan
+    # Step 4: Run Security Scan
+    - name: Run Security Scan (Bandit)
       run: |
-        bandit -r scripts/ -f custom
+        bandit -r scripts/ -f custom --msg-template "{severity}: {msg}"
 
-    # Step 5: Execute the Automation Script
+    # Step 5: Execute Automation Script
     - name: Run Deployment Checks
       run: |
         python scripts/deploy_check.py
+
+    # Step 6: UPDATE DASHBOARD (The Visual "Wow" Factor)
+    - name: Update README Badge
+      if: github.event_name == 'push' # Only update dashboard on actual pushes, not PRs
+      run: |
+        # Logic: Check if the user has less than 5 commits (New Intern?)
+        USER_COMMIT_COUNT=$(git log --author="${{ github.actor }}" --oneline | wc -l)
+        echo "User ${{ github.actor }} has $USER_COMMIT_COUNT commits."
+        
+        if [ "$USER_COMMIT_COUNT" -le "5" ]; then
+          echo "New user detected! Updating Badge..."
+          # Change badge to ORANGE (New Intern)
+          sed -i 's|Security-A%2B-green|Security-New%20Intern-orange|g' README.md
+        else
+          echo "Experienced user. Updating Badge..."
+          # Change badge back to GREEN (Verified)
+          sed -i 's|Security-New%20Intern-orange|Security-A%2B-green|g' README.md
+        fi
+
+        # Push the change back to GitHub
+        git config user.name "1Rivet-Bot"
+        git config user.email "bot@1rivet.com"
+        git add README.md
+        # Only commit if there are changes
+        git diff-index --quiet HEAD || git commit -m "Dashboard: Updated status for user ${{ github.actor }}"
+        git push
