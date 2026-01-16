@@ -7,7 +7,7 @@
 
 ## 🚦 Live Status
 ![Pipeline Status](https://github.com/YOUR_GITHUB_USERNAME/git-automation-project/actions/workflows/main.yml/badge.svg)
-![Security Rating](https://img.shields.io/badge/Security-A%2B-green)
+![Security Rating](https://img.shields.io/badge/Security-New%20Intern-orange)
 ![Python Version](https://img.shields.io/badge/Python-3.9-blue)
 
 ---
